@@ -30,7 +30,24 @@
 -- STEP 1: SETUP - Database, Warehouse and Data Retention
 -- ============================================================================
 
-USE ROLE ACCOUNTADMIN;
+-- Choose the role that runs the demo:
+--   'ACCOUNTADMIN'   - simplest, for sandbox accounts
+--   'REG_DEMO_ROLE'  - least privilege; create it once with the block below
+SET demo_role = 'ACCOUNTADMIN';
+
+-- OPTIONAL: least-privilege demo role. An administrator runs this ONCE,
+-- then set demo_role = 'REG_DEMO_ROLE' above.
+-- USE ROLE ACCOUNTADMIN;
+-- CREATE ROLE IF NOT EXISTS REG_DEMO_ROLE COMMENT = 'Runs the regulatory audit demo';
+-- GRANT CREATE DATABASE  ON ACCOUNT TO ROLE REG_DEMO_ROLE;   -- demo database (owned by this role)
+-- GRANT CREATE WAREHOUSE ON ACCOUNT TO ROLE REG_DEMO_ROLE;   -- XSMALL demo warehouse
+-- GRANT DATABASE ROLE SNOWFLAKE.GOVERNANCE_VIEWER TO ROLE REG_DEMO_ROLE;  -- ACCESS_HISTORY (Step 9b only)
+-- SET my_user = CURRENT_USER();
+-- GRANT ROLE REG_DEMO_ROLE TO USER IDENTIFIER($my_user);
+-- To avoid granting CREATE WAREHOUSE, give the role USAGE on an existing
+-- warehouse instead and replace REG_AUDIT_WH below with that warehouse.
+
+USE ROLE IDENTIFIER($demo_role);
 
 CREATE WAREHOUSE IF NOT EXISTS REG_AUDIT_WH
     WAREHOUSE_SIZE = XSMALL AUTO_SUSPEND = 60 AUTO_RESUME = TRUE INITIALLY_SUSPENDED = TRUE;
@@ -329,7 +346,10 @@ SELECT COUNT(*) AS positions_as_filed FROM REG_POSITIONS AT(TIMESTAMP => $filing
 -- STEP 11: CLEANUP (Optional - uncomment to remove demo objects)
 -- ============================================================================
 
--- USE ROLE ACCOUNTADMIN;
+-- USE ROLE IDENTIFIER($demo_role);
 -- DROP DATABASE IF EXISTS REG_AUDIT_DEMO_DB;
 -- DROP WAREHOUSE IF EXISTS REG_AUDIT_WH;
--- UNSET (filing_ts, fix_qid);
+-- UNSET (filing_ts, fix_qid, demo_role);
+-- If you created the least-privilege role, an administrator removes it:
+-- USE ROLE ACCOUNTADMIN;
+-- DROP ROLE IF EXISTS REG_DEMO_ROLE;
