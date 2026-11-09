@@ -1,0 +1,129 @@
+{
+  "_note": "Captured from a real end-to-end run of sql/reg_audit_time_travel.sql on synthetic data. User names replaced with <YOUR_USER>; times shown as time of day only. Capital ratios are illustrative.",
+  "report": [
+    {
+      "legal_entity": "HARBOR_POINT_BANK",
+      "positions_filed": 334,
+      "positions_now": 334,
+      "rwa_filed": 1717680500.0,
+      "rwa_now": 1717680500.0,
+      "rwa_change": 0.0,
+      "ratio_filed": 55.31,
+      "ratio_now": 55.31
+    },
+    {
+      "legal_entity": "LAKESIDE_TRUST_CO",
+      "positions_filed": 333,
+      "positions_now": 334,
+      "rwa_filed": 1969985500.0,
+      "rwa_now": 2040815000.0,
+      "rwa_change": 70829500.0,
+      "ratio_filed": 9.14,
+      "ratio_now": 8.82
+    },
+    {
+      "legal_entity": "SUMMIT_RIDGE_SECURITIES",
+      "positions_filed": 334,
+      "positions_now": 333,
+      "rwa_filed": 1644516000.0,
+      "rwa_now": 1638759000.0,
+      "rwa_change": -5757000.0,
+      "ratio_filed": 25.54,
+      "ratio_now": 25.63
+    }
+  ],
+  "versions": [
+    {
+      "version": "LIVE (corrected)",
+      "positions": 1001,
+      "total_notional": 5279207000.0
+    },
+    {
+      "version": "TIME TRAVEL (as filed)",
+      "positions": 1001,
+      "total_notional": 5228305000.0
+    },
+    {
+      "version": "SNAPSHOT CLONE (as filed)",
+      "positions": 1001,
+      "total_notional": 5228305000.0
+    }
+  ],
+  "stream": [
+    {
+      "position_id": 42,
+      "notional_usd": 31490000.0,
+      "action": "DELETE",
+      "is_update": true
+    },
+    {
+      "position_id": 42,
+      "notional_usd": 3149000.0,
+      "action": "INSERT",
+      "is_update": true
+    },
+    {
+      "position_id": 1001,
+      "notional_usd": 5757000.0,
+      "action": "DELETE",
+      "is_update": false
+    },
+    {
+      "position_id": 2001,
+      "notional_usd": 85000000.0,
+      "action": "INSERT",
+      "is_update": false
+    }
+  ],
+  "audit_log": [
+    {
+      "position_id": 42,
+      "change_type": "UPDATE",
+      "legal_entity": "LAKESIDE_TRUST_CO",
+      "old_notional": 31490000.0,
+      "new_notional": 3149000.0
+    },
+    {
+      "position_id": 1001,
+      "change_type": "DELETE",
+      "legal_entity": "SUMMIT_RIDGE_SECURITIES",
+      "old_notional": 5757000.0,
+      "new_notional": null
+    },
+    {
+      "position_id": 2001,
+      "change_type": "INSERT",
+      "legal_entity": "LAKESIDE_TRUST_CO",
+      "old_notional": null,
+      "new_notional": 85000000.0
+    }
+  ],
+  "who": [
+    {
+      "time": "06:10:59",
+      "user": "<YOUR_USER>",
+      "role": "ACCOUNTADMIN",
+      "type": "UPDATE",
+      "statement": "UPDATE REG_POSITIONS SET NOTIONAL_USD = NOTIONAL_USD / 10 WHERE POSITION_ID = 42"
+    },
+    {
+      "time": "06:10:59",
+      "user": "<YOUR_USER>",
+      "role": "ACCOUNTADMIN",
+      "type": "DELETE",
+      "statement": "DELETE FROM REG_POSITIONS WHERE POSITION_ID = 1001;"
+    },
+    {
+      "time": "06:11:00",
+      "user": "<YOUR_USER>",
+      "role": "ACCOUNTADMIN",
+      "type": "INSERT",
+      "statement": "INSERT INTO REG_POSITIONS VALUES"
+    }
+  ],
+  "undrop": {
+    "positions_before_drop": 1001,
+    "positions_after_undrop": 1001,
+    "positions_as_filed_after_undrop": 1001
+  }
+}

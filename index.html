@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Regulatory Reporting with Time Travel — Snowflake Horizon Guide</title>
+  <meta name="description" content="Prove what your data said on the filing date, what changed and who changed it, using Snowflake Time Travel, zero-copy clones, streams, query history and UNDROP." />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <a href="#main" class="skip-link">Skip to content</a>
+
+  <!-- ────── Nav ────── -->
+  <nav id="navbar">
+    <div class="nav-inner">
+      <a href="#" class="nav-brand">
+        <div class="nav-logo"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        Regulatory Audit
+      </a>
+      <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <ul class="nav-links" role="list">
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#file">Filing</a></li>
+        <li><a href="#compare">Time Travel</a></li>
+        <li><a href="#snapshot">Snapshot</a></li>
+        <li><a href="#audit">Audit Trail</a></li>
+        <li><a href="#undrop">Recovery</a></li>
+        <li><a href="#conclusion">Wrap-up</a></li>
+        <li><a href="https://github.com/sfc-gh-jacho/sfguide-regulatory-audit-time-travel">GitHub</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- ────── Hero ────── -->
+  <header class="hero" id="hero">
+    <div class="container">
+      <div class="hero-badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Financial Services · Snowflake Horizon
+      </div>
+      <h1>Regulatory Reporting with <span>Time Travel</span></h1>
+      <p>Show a regulator exactly what your data said on the filing date, what changed afterwards and who changed it, straight from the data and with no backup restores.</p>
+      <div class="hero-ctas">
+        <a href="#overview" class="btn btn-primary">Start the Guide</a>
+        <a href="sql/reg_audit_time_travel.sql" class="btn btn-ghost" download>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download Full SQL
+        </a>
+      </div>
+      <div class="hero-stats">
+        <div class="hero-stat"><div class="hero-stat-val">~20 min</div><div class="hero-stat-label">Time to Complete</div></div>
+        <div class="hero-stat"><div class="hero-stat-val">1,001</div><div class="hero-stat-label">Synthetic Positions</div></div>
+        <div class="hero-stat"><div class="hero-stat-val">3</div><div class="hero-stat-label">Post-filing Corrections</div></div>
+        <div class="hero-stat"><div class="hero-stat-val">0</div><div class="hero-stat-label">Backups Restored</div></div>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+
+    <!-- ────── Overview ────── -->
+    <section id="overview">
+      <div class="container">
+        <div class="section-header reveal">
+          <div class="section-label">Overview</div>
+          <h2>"What Did You Report, and What Changed?"</h2>
+          <p>Three fictional legal entities file a quarter-end capital report. Two weeks later, operations corrects three booking errors. Then the regulator asks for the report as filed, a list of every change, and who made each one.</p>
+        </div>
+        <div class="pipeline reveal">
+          <div class="pipeline-card">
+            <div class="pipeline-step grad-1">1</div>
+            <h3>Reproduce</h3>
+            <p>Time Travel reruns any query against the data as it existed at a timestamp or just before a specific statement.</p>
+          </div>
+          <div class="pipeline-card">
+            <div class="pipeline-step grad-2">2</div>
+            <h3>Preserve</h3>
+            <p>A zero-copy clone freezes the as-filed state permanently, beyond the Time Travel window, at no extra storage cost on day one.</p>
+          </div>
+          <div class="pipeline-card">
+            <div class="pipeline-step grad-3">3</div>
+            <h3>Explain</h3>
+            <p>A stream captures every insert, update and delete with old and new values. Query and access history record who did it.</p>
+          </div>
+          <div class="pipeline-card">
+            <div class="pipeline-step grad-4">4</div>
+            <h3>Recover</h3>
+            <p>UNDROP restores a dropped table instantly, along with its data and its Time Travel history.</p>
+          </div>
+        </div>
+
+        <h3 class="table-title reveal">The timeline you'll recreate</h3>
+        <ul class="timeline reveal">
+          <li><strong>Load</strong>: 1,001 positions, including two booking errors nobody has noticed yet</li>
+          <li class="filed"><strong>File</strong>: the capital report is run and submitted, and the filing timestamp is recorded</li>
+          <li><strong>Correct</strong>: a 10x "fat finger" notional is fixed, a duplicate booking is deleted and a late trade is added</li>
+          <li><strong>Prove</strong>: the regulator gets the report as filed, the change log and the list of who made each change</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ────── Prerequisites ────── -->
+    <section id="prereqs" class="bg-alt">
+      <div class="container narrow">
+        <div class="section-header reveal">
+          <div class="section-label">Prerequisites</div>
+          <h2>Before You Begin</h2>
+        </div>
+        <ul class="checklist reveal">
+          <li><strong>Enterprise Edition or higher</strong> for the 7-day retention the script sets, and for ACCESS_HISTORY (Step 9b). On <strong>Standard Edition</strong>, change the retention to 1 day and everything else works.</li>
+          <li><strong>ACCOUNTADMIN</strong>, or <code>&lt;YOUR_ROLE&gt;</code> with CREATE DATABASE and CREATE WAREHOUSE on the account. Step 9b also needs access to <code>SNOWFLAKE.ACCOUNT_USAGE</code>.</li>
+          <li><strong>One Snowsight worksheet, run top to bottom.</strong> Later steps use session variables (<code>$filing_ts</code>, <code>$fix_qid</code>) set earlier in the same session.</li>
+          <li><strong>Nothing else.</strong> The script creates its own database and warehouse and changes nothing that already exists.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ────── Steps ────── -->
+    <section id="setup">
+      <div class="container narrow">
+        <div class="step reveal">
+          <div class="step-head"><div class="deploy-num">1</div><div><div class="section-label">Step 1</div><h2>Setup and Data Retention</h2></div></div>
+          <p>This step creates a dedicated database and an XSMALL warehouse, and sets Time Travel retention to 7 days. Retention is the most important audit setting: it controls how far back you can query, clone or undrop. Set it deliberately, per database or table, rather than relying on the default.</p>
+          <div class="code-wrap" data-step="setup"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="load" class="bg-alt">
+      <div class="container narrow">
+        <div class="step reveal">
+          <div class="step-head"><div class="deploy-num">2</div><div><div class="section-label">Step 2</div><h2>Load Synthetic Positions</h2></div></div>
+          <p>This step loads 1,000 positions across three fictional legal entities, generated deterministically so every run produces the same numbers. It then plants two errors that will slip into the filing: a notional booked 10x too large and a duplicate booking.</p>
+          <div class="code-wrap" data-step="load"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="file">
+      <div class="container narrow">
+        <div class="step reveal">
+          <div class="step-head"><div class="deploy-num">3</div><div><div class="section-label">Step 3</div><h2>Run and File the Report</h2></div></div>
+          <p>A view computes risk-weighted assets and a Tier 1 ratio per entity, using a deliberately simplified, illustrative method. The script records the filing moment in <code>$filing_ts</code>. That one timestamp is all you need to reproduce the filing later.</p>
+          <div class="code-wrap" data-step="file"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="stream" class="bg-alt">
+      <div class="container narrow">
+        <div class="step reveal">
+          <div class="step-head"><div class="deploy-num">4</div><div><div class="section-label">Step 4</div><h2>Start an Audit Trail with a Stream</h2></div></div>
+          <p>A stream is a change-tracking bookmark on a table. From now on it records every insert, update and delete with before and after values, without triggers or extra application code.</p>
+          <div class="code-wrap" data-step="stream"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="corrections">
+      <div class="container narrow">
+        <div class="step reveal">
+          <div class="step-head"><div class="deploy-num">5</div><div><div class="section-label">Step 5</div><h2>Make Post-filing Corrections</h2></div></div>
+          <p>Operations fixes the fat-finger notional, removes the duplicate and books a late trade that belonged in the quarter. These are ordinary DML statements. The script saves the query ID of the first one so you can go back to the moment just before it ran.</p>
+          <div class="code-wrap" data-step="corrections"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="compare" class="bg-alt">
+      <div class="container narrow">
+        <div class="step reveal">
+          <div class="step-head"><div class="deploy-num">6</div><div><div class="section-label">Step 6</div><h2>Report as Filed vs. Report Now</h2></div></div>
+          <p>The same report logic, run once on today's data and once with <code>AT(TIMESTAMP =&gt; $filing_ts)</code>, reproduces the filing exactly. <code>BEFORE(STATEMENT =&gt; ...)</code> gives you the state just before any specific change. The comparison shows which entities' numbers moved and by how much.</p>
+          <div class="code-wrap" data-step="compare"></div>
+          <h3 class="table-title">Before vs. After: capital report by entity <span class="real-badge">Real run output</span></h3>
+          <div class="results" data-results="report"></div>
+          <p class="legend">Ratios are illustrative. LAKESIDE_TRUST_CO's ratio falls because the late $85M loan outweighs the fat-finger fix. SUMMIT_RIDGE_SECURITIES' ratio rises because the duplicate is removed.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="snapshot">
+      <div class="container narrow">
+        <div class="step reveal">
+          <div class="step-head"><div class="deploy-num">7</div><div><div class="section-label">Step 7</div><h2>Freeze the Filing with a Clone</h2></div></div>
+          <p>Time Travel only reaches back as far as the retention period. A zero-copy clone taken <em>at</em> the filing time keeps that exact state permanently. It shares storage with the source, so it costs nothing extra until the source data changes.</p>
+          <div class="code-wrap" data-step="snapshot"></div>
+          <h3 class="table-title">Three views of the same table <span class="real-badge">Real run output</span></h3>
+          <div class="results" data-results="versions"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="audit" class="bg-alt">
+      <div class="container narrow">
+        <div class="step reveal">
+          <div class="step-head"><div class="deploy-num">8</div><div><div class="section-label">Step 8</div><h2>What Changed: The Audit Log</h2></div></div>
+          <p>The stream holds exactly the three corrections. An update appears as a DELETE and INSERT pair marked <code>METADATA$ISUPDATE = TRUE</code>, so you get both the old and new values. Writing the stream into a table produces a durable, readable audit log.</p>
+          <div class="code-wrap" data-step="audit"></div>
+          <h3 class="table-title">Raw stream contents <span class="real-badge">Real run output</span></h3>
+          <div class="results" data-results="stream"></div>
+          <h3 class="table-title">Audit log <span class="real-badge">Real run output</span></h3>
+          <div class="results" data-results="audit_log"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="who">
+      <div class="container narrow">
+        <div class="step reveal">
+          <div class="step-head"><div class="deploy-num">9</div><div><div class="section-label">Step 9</div><h2>Who Changed It</h2></div></div>
+          <p>The session's query history is available immediately and shows each change with its user, role and statement. For an account-wide, durable record, <code>ACCESS_HISTORY</code> lists every query that modified the table and the columns it touched. It appears after a delay of up to about three hours and requires Enterprise Edition.</p>
+          <div class="code-wrap" data-step="who"></div>
+          <h3 class="table-title">Changes made after the filing (9a) <span class="real-badge">Real run output</span></h3>
+          <div class="results" data-results="who"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="undrop" class="bg-alt">
+      <div class="container narrow">
+        <div class="step reveal">
+          <div class="step-head"><div class="deploy-num">10</div><div><div class="section-label">Step 10</div><h2>Recover from Mistakes with UNDROP</h2></div></div>
+          <p>Someone drops the production positions table. Within the retention period, <code>UNDROP TABLE</code> brings it back instantly. The data, the history and even the as-filed Time Travel query all come back with it.</p>
+          <div class="code-wrap" data-step="undrop"></div>
+          <h3 class="table-title">Drop and recovery <span class="real-badge">Real run output</span></h3>
+          <div class="results" data-results="undrop"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="cleanup">
+      <div class="container narrow">
+        <div class="step reveal">
+          <div class="step-head"><div class="deploy-num">11</div><div><div class="section-label">Step 11</div><h2>Clean Up</h2></div></div>
+          <p>Uncomment and run this block to remove the demo database and warehouse and clear the session variables. Everything the guide created lives in those two objects.</p>
+          <div class="code-wrap" data-step="cleanup"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ────── Conclusion ────── -->
+    <section id="conclusion" class="bg-alt">
+      <div class="container">
+        <div class="section-header reveal">
+          <div class="section-label">Wrap-up</div>
+          <h2>Key Takeaways</h2>
+          <p>Auditability is built into Snowflake's storage. You don't need snapshot jobs, shadow tables or backup restores to answer a regulator.</p>
+        </div>
+        <div class="cortex-grid reveal">
+          <div class="cortex-card"><h3>Reproduce any report</h3><p>One recorded timestamp or query ID reproduces a filed report exactly with AT or BEFORE.</p></div>
+          <div class="cortex-card"><h3>Freeze what you filed</h3><p>A clone taken at the filing time outlasts the Time Travel window, with no data copied.</p></div>
+          <div class="cortex-card"><h3>Explain every change</h3><p>Streams capture old and new values, and query and access history show who made each change.</p></div>
+          <div class="cortex-card"><h3>Set retention deliberately</h3><p>Retention defines your audit and recovery window. Choose it per database to match your obligations.</p></div>
+        </div>
+        <div class="doc-links reveal">
+          <h3>Learn more in the Snowflake documentation</h3>
+          <div class="doc-grid">
+            <a href="https://docs.snowflake.com/en/user-guide/data-time-travel" target="_blank" rel="noopener">Time Travel →</a>
+            <a href="https://docs.snowflake.com/en/user-guide/object-clone" target="_blank" rel="noopener">Cloning →</a>
+            <a href="https://docs.snowflake.com/en/user-guide/streams-intro" target="_blank" rel="noopener">Streams →</a>
+            <a href="https://docs.snowflake.com/en/user-guide/access-history" target="_blank" rel="noopener">Access History →</a>
+            <a href="https://docs.snowflake.com/en/sql-reference/sql/undrop-table" target="_blank" rel="noopener">UNDROP TABLE →</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ────── Footer ────── -->
+  <footer>
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-col">
+          <h4>Guide</h4>
+          <a href="#overview">Overview</a>
+          <a href="#compare">Time Travel</a>
+          <a href="#audit">Audit Trail</a>
+          <a href="#undrop">Recovery</a>
+        </div>
+        <div class="footer-col">
+          <h4>Resources</h4>
+          <a href="sql/reg_audit_time_travel.sql" download>Download SQL</a>
+          <a href="https://github.com/sfc-gh-jacho/sfguide-regulatory-audit-time-travel">GitHub Repository</a>
+          <a href="https://docs.snowflake.com/en/user-guide/data-cdp" target="_blank" rel="noopener">Continuous Data Protection</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p class="footer-disclaimer">All legal entities, positions and figures are synthetic. The capital calculation is simplified and illustrative only: it is not a regulatory methodology, and this guide is not compliance advice. This site has no connection to any Snowflake account.</p>
+        <span class="snow-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="2" x2="12" y2="22"/><line x1="3.3" y1="7" x2="20.7" y2="17"/><line x1="3.3" y1="17" x2="20.7" y2="7"/></svg>
+          Built on Snowflake Horizon
+        </span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-sql.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
